@@ -14,7 +14,7 @@ development:
   database: db/spree_development.sqlite3
 test:
   adapter: sqlite3
-  database: db/spree_test.sqlite3
+  database: db/spree_test<%%= ENV.fetch('DB_SUFFIX', '') %>.sqlite3
   timeout: 10000
 production:
   adapter: sqlite3
@@ -74,7 +74,7 @@ development:
   database: db/spree_development.sqlite3
 test:
   adapter: sqlite3
-  database: db/spree_test.sqlite3
+  database: db/spree_test<%%= ENV.fetch('DB_SUFFIX', '') %>.sqlite3
 production:
   adapter: sqlite3
   database: db/spree_production.sqlite3
