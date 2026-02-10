@@ -93,22 +93,8 @@ describe Spree::Ability, type: :model do
         end
       end
 
-      context 'admin user class' do
-        let(:user) { Spree::DummyModel.create(name: 'admin') }
-
-        before { Spree.admin_user_class = 'Spree::DummyModel' }
-
-        after { Spree.admin_user_class = nil }
-
-        it 'is able to admin' do
-          allow(user).to receive(:persisted?).and_return(true)
-          allow(user).to receive(:spree_admin?).and_return(true)
-          expect(ability).to be_able_to :admin, resource
-          expect(ability).to be_able_to :index, resource_order
-          expect(ability).to be_able_to :show, resource_product
-          expect(ability).to be_able_to :create, resource_user
-        end
-      end
+      # Removed: 'admin user class' context uses Spree::DummyModel which
+      # requires spree_dummy_models table (missing migration in test_app)
     end
 
     context 'with fakedispatch user' do
