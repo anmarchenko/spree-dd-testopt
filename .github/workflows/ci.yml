@@ -18,6 +18,8 @@ env:
   DD_TEST_OPTIMIZATION_RUNNER_FRAMEWORK: rspec
   DD_TEST_OPTIMIZATION_RUNNER_MIN_PARALLELISM: 1
   DD_TEST_OPTIMIZATION_RUNNER_MAX_PARALLELISM: 8
+  # ddtest runs from repo root but rspec uses core/Gemfile and core/spec.
+  BUNDLE_GEMFILE: ${{ github.workspace }}/core/Gemfile
 
 jobs:
   build:
@@ -31,9 +33,6 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           bundler-cache: true
-      - name: Bundle install (core)
-        working-directory: core
-        run: bundle install
       - name: Generate test app for core
         working-directory: core
         run: bundle exec rake test_app
@@ -52,16 +51,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Setup Datadog Test Runner
-        working-directory: core
-        run: ../bin/ddtest plan
+        run: |
+          bin/ddtest plan \
+            --tests-location "core/spec/**/*_spec.rb" \
+            --command "bundle exec rspec"
       - name: Set matrix output
         id: matrix
-        run: cat core/.testoptimization/github/config >> $GITHUB_OUTPUT
+        run: cat .testoptimization/github/config >> $GITHUB_OUTPUT
       - name: Upload DD artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dd-artifacts
-          path: 'core/.testoptimization'
+          path: '.testoptimization'
           if-no-files-found: warn
           include-hidden-files: true
       - name: Upload core dummy app
@@ -80,6 +81,7 @@ jobs:
       DD_TEST_OPTIMIZATION_RUNNER_CI_NODE: ${{ matrix.ci_node_index }}
       DD_TEST_OPTIMIZATION_RUNNER_CI_NODE_WORKERS: 1
       DD_TEST_OPTIMIZATION_RUNNER_WORKER_ENV: DB_SUFFIX=_worker{{nodeIndex}}
+      RUBYLIB: core/spec:core/lib
 
     strategy:
       fail-fast: false
@@ -91,14 +93,11 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           bundler-cache: true
-      - name: Bundle install (core)
-        working-directory: core
-        run: bundle install
       - name: Download DD artifacts
         uses: actions/download-artifact@v4
         with:
           name: dd-artifacts
-          path: 'core/.testoptimization'
+          path: '.testoptimization'
       - name: Download core dummy app
         uses: actions/download-artifact@v4
         with:
@@ -126,7 +125,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
       - name: RSpec
-        working-directory: core
-        run: ../bin/ddtest run
         env:
           DD_TEST_SESSION_NAME: test-runner-${{ matrix.ci_node_index }}
+        run: |
+          bin/ddtest run \
+            --tests-location "core/spec/**/*_spec.rb" \
+            --command "bundle exec rspec"
