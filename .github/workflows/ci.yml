@@ -18,8 +18,6 @@ env:
   DD_TEST_OPTIMIZATION_RUNNER_FRAMEWORK: rspec
   DD_TEST_OPTIMIZATION_RUNNER_MIN_PARALLELISM: 1
   DD_TEST_OPTIMIZATION_RUNNER_MAX_PARALLELISM: 8
-  # ddtest runs from repo root but rspec uses core/Gemfile and core/spec.
-  BUNDLE_GEMFILE: ${{ github.workspace }}/core/Gemfile
 
 jobs:
   build:
@@ -32,7 +30,18 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          bundler-cache: true
+          bundler-cache: false
+      # ddtest's platform sanity check runs `bundle info datadog-ci`, which
+      # fails unless the gem is in the resolved bundle. Mirror what crook
+      # does locally and inject it before bundling.
+      - name: Inject datadog-ci into shared dependencies
+        run: |
+          printf "\ngroup :test do\n  gem 'datadog-ci'\nend\n" >> common_spree_dependencies.rb
+      - name: Bundle install (root)
+        run: bundle install
+      - name: Bundle install (core)
+        working-directory: core
+        run: bundle install
       - name: Generate test app for core
         working-directory: core
         run: bundle exec rake test_app
@@ -51,18 +60,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Setup Datadog Test Runner
-        run: |
-          bin/ddtest plan \
-            --tests-location "core/spec/**/*_spec.rb" \
-            --command "bundle exec rspec"
+        working-directory: core
+        run: ../bin/ddtest plan
       - name: Set matrix output
         id: matrix
-        run: cat .testoptimization/github/config >> $GITHUB_OUTPUT
+        run: cat core/.testoptimization/github/config >> $GITHUB_OUTPUT
       - name: Upload DD artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dd-artifacts
-          path: '.testoptimization'
+          path: 'core/.testoptimization'
           if-no-files-found: warn
           include-hidden-files: true
       - name: Upload core dummy app
@@ -81,7 +88,6 @@ jobs:
       DD_TEST_OPTIMIZATION_RUNNER_CI_NODE: ${{ matrix.ci_node_index }}
       DD_TEST_OPTIMIZATION_RUNNER_CI_NODE_WORKERS: 1
       DD_TEST_OPTIMIZATION_RUNNER_WORKER_ENV: DB_SUFFIX=_worker{{nodeIndex}}
-      RUBYLIB: core/spec:core/lib
 
     strategy:
       fail-fast: false
@@ -92,12 +98,18 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          bundler-cache: true
+          bundler-cache: false
+      - name: Inject datadog-ci into shared dependencies
+        run: |
+          printf "\ngroup :test do\n  gem 'datadog-ci'\nend\n" >> common_spree_dependencies.rb
+      - name: Bundle install (core)
+        working-directory: core
+        run: bundle install
       - name: Download DD artifacts
         uses: actions/download-artifact@v4
         with:
           name: dd-artifacts
-          path: '.testoptimization'
+          path: 'core/.testoptimization'
       - name: Download core dummy app
         uses: actions/download-artifact@v4
         with:
@@ -125,9 +137,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
       - name: RSpec
+        working-directory: core
         env:
           DD_TEST_SESSION_NAME: test-runner-${{ matrix.ci_node_index }}
-        run: |
-          bin/ddtest run \
-            --tests-location "core/spec/**/*_spec.rb" \
-            --command "bundle exec rspec"
+        run: ../bin/ddtest run
