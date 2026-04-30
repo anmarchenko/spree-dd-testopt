@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - '**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-test-runner
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  RAILS_ENV: test
+  DD_TRACE_DEBUG: 0
+  DD_ENV: ci
+  DD_SERVICE: spree
+  DD_TEST_OPTIMIZATION_RUNNER_PLATFORM: ruby
+  DD_TEST_OPTIMIZATION_RUNNER_FRAMEWORK: rspec
+  DD_TEST_OPTIMIZATION_RUNNER_MIN_PARALLELISM: 1
+  DD_TEST_OPTIMIZATION_RUNNER_MAX_PARALLELISM: 8
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+      - name: Bundle install (core)
+        working-directory: core
+        run: bundle install
+      - name: Generate test app for core
+        working-directory: core
+        run: bundle exec rake test_app
+      - name: Configure Datadog Test Optimization
+        uses: datadog/test-visibility-github-action@v2
+        with:
+          languages: ruby
+          api_key: ${{ secrets.DD_API_KEY }}
+          site: datadoghq.eu
+      - name: Download ddtest binary
+        run: |
+          LATEST_PRERELEASE_TAG=$(gh release list --repo DataDog/ddtest --json tagName,isPrerelease --jq '.[] | select(.isPrerelease) | .tagName' | head -n 1)
+          gh release download "$LATEST_PRERELEASE_TAG" --repo DataDog/ddtest --pattern "ddtest-linux-amd64" --dir bin
+          mv bin/ddtest-linux-amd64 bin/ddtest
+          chmod +x bin/ddtest
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Setup Datadog Test Runner
+        working-directory: core
+        run: ../bin/ddtest plan
+      - name: Set matrix output
+        id: matrix
+        run: cat core/.testoptimization/github/config >> $GITHUB_OUTPUT
+      - name: Upload DD artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dd-artifacts
+          path: 'core/.testoptimization'
+          if-no-files-found: warn
+          include-hidden-files: true
+      - name: Upload core dummy app
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-dummy-app
+          path: core/spec/dummy
+          if-no-files-found: error
+          include-hidden-files: true
+
+  rspec:
+    runs-on: ubuntu-latest
+    needs: [build]
+    timeout-minutes: 30
+    env:
+      DD_TEST_OPTIMIZATION_RUNNER_CI_NODE: ${{ matrix.ci_node_index }}
+      DD_TEST_OPTIMIZATION_RUNNER_CI_NODE_WORKERS: 1
+      DD_TEST_OPTIMIZATION_RUNNER_WORKER_ENV: DB_SUFFIX=_worker{{nodeIndex}}
+
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.build.outputs.matrix) }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+      - name: Bundle install (core)
+        working-directory: core
+        run: bundle install
+      - name: Download DD artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dd-artifacts
+          path: 'core/.testoptimization'
+      - name: Download core dummy app
+        uses: actions/download-artifact@v4
+        with:
+          name: core-dummy-app
+          path: core/spec/dummy
+      - name: Prepare per-worker test database
+        env:
+          NODE_INDEX: ${{ matrix.ci_node_index }}
+        # CI_NODE_WORKERS=1, so {{nodeIndex}} expands to ciNode * 10000.
+        run: |
+          GLOBAL=$((NODE_INDEX * 10000))
+          cp core/spec/dummy/db/spree_test.sqlite3 core/spec/dummy/db/spree_test_worker${GLOBAL}.sqlite3
+      - name: Configure Datadog Test Optimization
+        uses: datadog/test-visibility-github-action@v2
+        with:
+          languages: ruby
+          api_key: ${{ secrets.DD_API_KEY }}
+          site: datadoghq.eu
+      - name: Download ddtest binary
+        run: |
+          LATEST_PRERELEASE_TAG=$(gh release list --repo DataDog/ddtest --json tagName,isPrerelease --jq '.[] | select(.isPrerelease) | .tagName' | head -n 1)
+          gh release download "$LATEST_PRERELEASE_TAG" --repo DataDog/ddtest --pattern "ddtest-linux-amd64" --dir bin
+          mv bin/ddtest-linux-amd64 bin/ddtest
+          chmod +x bin/ddtest
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: RSpec
+        working-directory: core
+        run: ../bin/ddtest run
+        env:
+          DD_TEST_SESSION_NAME: test-runner-${{ matrix.ci_node_index }}
