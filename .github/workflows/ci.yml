@@ -119,9 +119,12 @@ jobs:
         env:
           NODE_INDEX: ${{ matrix.ci_node_index }}
         # CI_NODE_WORKERS=1, so {{nodeIndex}} expands to ciNode * 10000.
+        # mkdir -p tmp: actions/upload-artifact skips empty dirs, but specs
+        # like export_spec write CSVs to Rails.root.join('tmp').
         run: |
           GLOBAL=$((NODE_INDEX * 10000))
           cp core/spec/dummy/db/spree_test.sqlite3 core/spec/dummy/db/spree_test_worker${GLOBAL}.sqlite3
+          mkdir -p core/spec/dummy/tmp
       - name: Configure Datadog Test Optimization
         uses: datadog/test-visibility-github-action@v2
         with:
