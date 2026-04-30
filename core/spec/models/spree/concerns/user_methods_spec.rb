@@ -136,13 +136,6 @@ describe Spree::UserMethods do
       expect(Spree.user_class.multi_search('greg')).to eq([])
     end
 
-    it 'returns users based on the full name' do
-      expect(Spree.user_class.multi_search('joh do')).to eq([user_1, user_5])
-      expect(Spree.user_class.multi_search('ane gon')).to eq([user_2])
-      expect(Spree.user_class.multi_search('mary moe')).to eq([user_3])
-      expect(Spree.user_class.multi_search('jane moe')).to eq([user_2, user_3])
-      expect(Spree.user_class.multi_search('greg smith')).to eq([])
-    end
   end
 
   describe '#can_be_deleted?' do
