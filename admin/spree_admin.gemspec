@@ -33,7 +33,7 @@ Gem::Specification.new do |s|
   s.add_dependency 'tailwindcss-rails', '>= 4.0'
   s.add_dependency 'tailwindcss-ruby', '>= 4.0'
   s.add_dependency 'groupdate', '~> 6.2'
-  s.add_dependency 'hightop', '~> 0.3'
+  s.add_dependency 'hightop', '>= 0.3', '< 2.0'
   s.add_dependency 'importmap-rails'
   s.add_dependency 'inline_svg', '~> 1.10'
   s.add_dependency 'local_time', '~> 3.0'
