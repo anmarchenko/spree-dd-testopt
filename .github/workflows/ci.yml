@@ -86,7 +86,6 @@ jobs:
     timeout-minutes: 30
     env:
       DD_TEST_OPTIMIZATION_RUNNER_CI_NODE: ${{ matrix.ci_node_index }}
-      DD_TEST_OPTIMIZATION_RUNNER_CI_NODE_WORKERS: 1
       DD_TEST_OPTIMIZATION_RUNNER_WORKER_ENV: DB_SUFFIX=_worker{{nodeIndex}}
 
     strategy:
@@ -117,15 +116,11 @@ jobs:
         with:
           name: core-dummy-app
           path: core/spec/dummy
-      - name: Prepare per-worker test database
-        env:
-          NODE_INDEX: ${{ matrix.ci_node_index }}
-        # CI_NODE_WORKERS=1, so {{nodeIndex}} expands to ciNode * 10000.
+      - name: Prepare per-node test database
         # mkdir -p tmp: actions/upload-artifact skips empty dirs, but specs
         # like export_spec write CSVs to Rails.root.join('tmp').
         run: |
-          GLOBAL=$((NODE_INDEX * 10000))
-          cp core/spec/dummy/db/spree_test.sqlite3 core/spec/dummy/db/spree_test_worker${GLOBAL}.sqlite3
+          cp core/spec/dummy/db/spree_test.sqlite3 core/spec/dummy/db/spree_test_worker${DD_TEST_OPTIMIZATION_RUNNER_CI_NODE}.sqlite3
           mkdir -p core/spec/dummy/tmp
       - name: Configure Datadog Test Optimization
         uses: datadog/test-visibility-github-action@v2
@@ -143,6 +138,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
       - name: RSpec
         working-directory: core
-        env:
-          DD_TEST_SESSION_NAME: test-runner-${{ matrix.ci_node_index }}
         run: ../bin/ddtest run
