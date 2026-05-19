@@ -1,4 +1,5 @@
 <p align="center">
+  <!-- Test Optimization CI trigger: 2026-05-19. -->
   <a href="https://spreecommerce.org">
     <img alt="Spree Commerce - an open source eCommerce platform" src="https://raw.githubusercontent.com/spree/spree/e4ee6636d9a31c73761b0c76662d15b0f9899ecb/docs/images/Spree%20Commerce%20open-source%20eCommerce%20platform%20API%20headless%20Next.js.webp">
   </a>
