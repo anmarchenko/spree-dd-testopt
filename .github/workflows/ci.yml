@@ -18,6 +18,8 @@ env:
   DD_TEST_OPTIMIZATION_RUNNER_FRAMEWORK: rspec
   DD_TEST_OPTIMIZATION_RUNNER_MIN_PARALLELISM: 1
   DD_TEST_OPTIMIZATION_RUNNER_MAX_PARALLELISM: 8
+  DD_TEST_OPTIMIZATION_RUNNER_TEST_DISCOVERY_CACHE: .ddtest-cache/tests-discovery.json
+  DD_TEST_OPTIMIZATION_RUNNER_TESTS_EXCLUDE_PATTERN: spec/ddtest/excluded/**/*_spec.rb
 
 jobs:
   build:
@@ -27,6 +29,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # DDTest discovery cache validation needs the cache source commit locally.
+          fetch-depth: 3
+      - name: Restore DDTest discovery cache
+        id: ddtest_discovery_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: core/.ddtest-cache/tests-discovery.json
+          key: ddtest-discovery-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            ddtest-discovery-${{ runner.os }}-${{ github.ref_name }}-
+            ddtest-discovery-${{ runner.os }}-
+            ddtest-discovery-
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
@@ -63,6 +78,30 @@ jobs:
         name: Setup Datadog Test Runner
         working-directory: core
         run: ../bin/ddtest plan
+      - name: Verify DDTest exclude pattern
+        run: |
+          test -s core/.testoptimization/runner/test-files.txt
+          if grep -Fq "spec/ddtest/excluded/exclude_pattern_canary_spec.rb" core/.testoptimization/runner/test-files.txt core/.testoptimization/runner/tests-split/runner-*; then
+            echo "DDTest exclude pattern did not filter the canary spec" >&2
+            exit 1
+          fi
+      - id: stage_ddtest_discovery_cache
+        name: Stage latest DDTest discovery cache
+        if: always()
+        run: |
+          if [ -f core/.testoptimization/tests-discovery/tests.json ]; then
+            mkdir -p core/.ddtest-cache
+            cp core/.testoptimization/tests-discovery/tests.json core/.ddtest-cache/tests-discovery.json
+            echo "cache-ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "cache-ready=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Save latest DDTest discovery cache
+        if: always() && steps.stage_ddtest_discovery_cache.outputs.cache-ready == 'true' && steps.ddtest_discovery_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: core/.ddtest-cache/tests-discovery.json
+          key: ${{ steps.ddtest_discovery_cache.outputs.cache-primary-key }}
       - name: Upload DD artifacts
         uses: actions/upload-artifact@v4
         with:
