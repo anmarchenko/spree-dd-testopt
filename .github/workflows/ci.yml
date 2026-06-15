@@ -80,7 +80,8 @@ jobs:
         run: ../bin/ddtest plan
       - name: Verify DDTest exclude pattern
         run: |
-          test -s core/.testoptimization/runner/test-files.txt
+          test -f core/.testoptimization/runner/test-files.txt
+          test -d core/.testoptimization/runner/tests-split
           if grep -Fq "spec/ddtest/excluded/exclude_pattern_canary_spec.rb" core/.testoptimization/runner/test-files.txt core/.testoptimization/runner/tests-split/runner-*; then
             echo "DDTest exclude pattern did not filter the canary spec" >&2
             exit 1
