@@ -1,6 +1,7 @@
 require 'spec_helper'
 
 describe Spree::BaseHelper, type: :helper do
+  # Exercises ddtest discovery-cache invalidation for changed core specs.
   include described_class
 
   let(:current_store) { create(:store) }
