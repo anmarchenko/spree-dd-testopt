@@ -2,7 +2,9 @@ require 'spec_helper'
 
 describe Spree::UserMethods do
   let(:test_user) { create :user }
-  let!(:another_user) { create(:user) }
+  let!(:another_user) do
+    create(:user, email: 'another.user@example.com', first_name: 'Another', last_name: 'User')
+  end
   let(:current_store) { @default_store }
 
   describe '#last_incomplete_spree_order' do
