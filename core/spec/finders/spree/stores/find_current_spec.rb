@@ -14,6 +14,10 @@ module Spree
       Spree::Current.store = nil
     end
 
+    after do
+      Spree::Current.reset
+    end
+
     context 'no arguments' do
       it { expect(subject).to eq(store) }
       it { subject; expect(Spree::Current.store).to eq(store) }
