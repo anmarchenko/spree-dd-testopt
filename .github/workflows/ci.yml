@@ -45,6 +45,7 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
+          ruby-version: '4.0'
           bundler-cache: false
       # ddtest's platform sanity check runs `bundle info datadog-ci`, which
       # fails unless the gem is in the resolved bundle. Mirror what crook
@@ -137,6 +138,7 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
+          ruby-version: '4.0'
           bundler-cache: false
       - name: Inject datadog-ci into shared dependencies
         run: |

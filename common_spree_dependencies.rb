@@ -7,6 +7,8 @@ gem 'tzinfo-data', platforms: [:mingw, :mswin, :x64_mingw]
 gem 'rails', ENV.fetch('RAILS_VERSION', '~> 8.1.0'), require: false
 # Rails 8.1.3.1 passes JSON.parse options as a positional hash, which json 3 no longer accepts.
 gem 'json', '< 3'
+# StateMachines 0.300 changes successful events from true to transition objects.
+gem 'state_machines', '< 0.300'
 
 platforms :jruby do
   gem 'jruby-openssl'
